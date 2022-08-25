@@ -44,7 +44,7 @@
 #include "debug.h"
 #include "gpio.h"
 #include "timer.h"
-
+#include <math.h>
 
 #define ADC_VALS 12
 #define ADC_FIRST (1366 - ((ADC_VALS - 2) / 2))
@@ -80,6 +80,27 @@ static void MX_ADC1_Init(void);
   *
   * @retval None
   */
+
+#include  <errno.h>
+#include  <sys/unistd.h> // STDOUT_FILENO, STDERR_FILENO
+
+int _write(int file, char *data, int len)
+{
+   if ((file != STDOUT_FILENO) && (file != STDERR_FILENO))
+   {
+      errno = EBADF;
+      return -1;
+   }
+
+   // arbitrary timeout 1000
+   HAL_StatusTypeDef status =
+      HAL_UART_Transmit(&huart1, (uint8_t*)data, len, 1000);
+
+   // return # of bytes written - as best we can tell
+   return (status == HAL_OK ? len : 0);
+}
+
+
 int main(void)
 {
   /* USER CODE BEGIN 1 */
@@ -169,6 +190,8 @@ int main(void)
   uint32_t vals[ADC_VALS] = {};
   uint32_t num = 0;
 
+  double sum = 0.0;
+  double sum_sq = 0.0;
   while(1) {
     ADC1->CR2 |= ADC_CR2_SWSTART;
     while(!(ADC1->SR & ADC_SR_EOC)){
@@ -205,6 +228,8 @@ int main(void)
         dbc(' ');          
       }
       db_crlf();
+
+    printf("mean: %f stddev: %f \r\n", sum / num,  sqrt(sum_sq/num - (sum/num) * (sum/num)));
     }
     
     // dp_d(val);
@@ -214,6 +239,9 @@ int main(void)
     //db_crlf();
     //HAL_Delay(100);
     num++;
+    sum += val;
+    sum_sq += val * val;
+
   }
 
 
